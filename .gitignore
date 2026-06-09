@@ -41,3 +41,4 @@ Desktop.ini
 # Coverage & testing
 coverage/
 .nyc_output/
+package-lock.json
