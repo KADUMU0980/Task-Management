@@ -293,3 +293,52 @@ body {
 .subtask-check:hover {
   border-color: var(--border-strong);
 }
+
+/* ========================
+   SCROLL SNAP (Kanban mobile)
+   ======================== */
+.snap-x         { scroll-snap-type: x mandatory; }
+.snap-center    { scroll-snap-align: center; }
+.snap-start     { scroll-snap-align: start; }
+.scroll-smooth  { scroll-behavior: smooth; }
+
+/* ========================
+   XS BREAKPOINT  (≥ 480px)
+   Tailwind doesn't ship xs by default
+   ======================== */
+@media (min-width: 480px) {
+  .xs\:w-auto    { width: auto; }
+  .xs\:w-\[78vw\] { width: 78vw; }
+  .xs\:flex-row  { flex-direction: row; }
+  .xs\:items-center { align-items: center; }
+  .xs\:inline    { display: inline; }
+  .xs\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ========================
+   MOBILE TOUCH IMPROVEMENTS
+   ======================== */
+@media (max-width: 1023px) {
+  /* Prevent text selection during Kanban drag on touch */
+  .kanban-board {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: pan-x;
+  }
+
+  /* Larger tap targets on mobile */
+  .mobile-tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ========================
+   TASK ACTION BUTTONS
+   Always visible on touch (no hover)
+   ======================== */
+@media (hover: none) {
+  .group:hover .opacity-0 {
+    opacity: 1;
+  }
+}
