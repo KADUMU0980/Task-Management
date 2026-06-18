@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { analyticsApi } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -36,19 +36,21 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const stats = data?.stats || {};
+
+  // ⚠️ useMemo must be called unconditionally — BEFORE any early returns
+  const cards = useMemo(() => [
+    { label: 'Total',       value: stats.total      || 0, icon: ListTodo,      grad: 'linear-gradient(135deg,#7c3aed,#6d28d9)', border: 'border-violet-500/30' },
+    { label: 'Completed',   value: stats.completed  || 0, icon: CheckCircle2,  grad: 'linear-gradient(135deg,#059669,#0d9488)', border: 'border-emerald-500/30' },
+    { label: 'In Progress', value: stats.inProgress || 0, icon: TrendingUp,    grad: 'linear-gradient(135deg,#0891b2,#0e7490)', border: 'border-cyan-500/30'    },
+    { label: 'Overdue',     value: stats.overdue    || 0, icon: AlertTriangle, grad: 'linear-gradient(135deg,#e11d48,#be123c)', border: 'border-rose-500/30'    },
+  ], [stats.total, stats.completed, stats.inProgress, stats.overdue]);
+
   if (loading) return <LoadingSpinner size="lg" className="h-64" />;
 
-  const stats = data?.stats || {};
   const pct   = stats.completionRate || 0;
   const hour  = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-
-  const cards = [
-    { label: 'Total',       value: stats.total     || 0, icon: ListTodo,      grad: 'linear-gradient(135deg,#7c3aed,#6d28d9)', border: 'border-violet-500/30' },
-    { label: 'Completed',   value: stats.completed || 0, icon: CheckCircle2,  grad: 'linear-gradient(135deg,#059669,#0d9488)', border: 'border-emerald-500/30' },
-    { label: 'In Progress', value: stats.inProgress|| 0, icon: TrendingUp,    grad: 'linear-gradient(135deg,#0891b2,#0e7490)', border: 'border-cyan-500/30'    },
-    { label: 'Overdue',     value: stats.overdue   || 0, icon: AlertTriangle, grad: 'linear-gradient(135deg,#e11d48,#be123c)', border: 'border-rose-500/30'    },
-  ];
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -77,7 +79,7 @@ export default function DashboardPage() {
         {/* Progress ring */}
         <div className="flex items-center gap-3 sm:flex-col sm:items-center sm:gap-1 flex-shrink-0">
           <div className="relative w-14 h-14 sm:w-16 sm:h-16">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" aria-label={`${pct}% completion`}>
               <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3"/>
               <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="3" strokeLinecap="round"
                 stroke="url(#pg)" strokeDasharray={`${pct} 100`}/>
@@ -89,7 +91,7 @@ export default function DashboardPage() {
               </defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="tf-text-1 font-bold text-xs">{pct}%</span>
+              <span className="tf-text-1 font-bold text-xs tabular-nums">{pct}%</span>
             </div>
           </div>
           <span className="tf-text-3 text-xs">Done</span>

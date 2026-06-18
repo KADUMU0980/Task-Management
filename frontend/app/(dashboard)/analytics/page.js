@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { analyticsApi } from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 import {
@@ -40,32 +40,33 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <LoadingSpinner size="lg" className="h-64" />;
-
   const stats     = dashboard?.stats || {};
-  const tickColor = isDark ? '#4a5a7a' : '#8b91b8';
-  const gridColor = isDark ? 'rgba(139,92,246,0.08)' : 'rgba(124,58,237,0.1)';
 
-  const statusData = [
+  // Memoize derived data so theme toggles don't recalculate everything
+  const statusData = useMemo(() => [
     { name: 'To Do',       value: stats.todo       || 0, color: '#64748b' },
     { name: 'In Progress', value: stats.inProgress || 0, color: '#06b6d4' },
     { name: 'Completed',   value: stats.completed  || 0, color: '#10b981' },
-  ].filter(d => d.value > 0);
+  ].filter(d => d.value > 0), [stats.todo, stats.inProgress, stats.completed]);
 
-  const priorityData = (dashboard?.priorityStats || []).map(p => ({
-    name:  p._id,
-    value: p.count,
-    color: p._id === 'high' ? '#f43f5e' : p._id === 'medium' ? '#f59e0b' : '#10b981',
-  }));
+  const priorityData = useMemo(() =>
+    (dashboard?.priorityStats || []).map(p => ({
+      name:  p._id,
+      value: p.count,
+      color: p._id === 'high' ? '#f43f5e' : p._id === 'medium' ? '#f59e0b' : '#10b981',
+    })), [dashboard?.priorityStats]);
 
-  // Reuse StatCard for summary cards using gradient backgrounds
-  const summaryCardData = [
-    { label: 'Completion Rate',     value: `${stats.completionRate || 0}%`,          icon: Target,    grad: 'linear-gradient(135deg,#7c3aed,#6d28d9)', border: 'border-violet-500/30' },
-    { label: 'Created This Week',   value: weekly.reduce((s, d) => s + d.created, 0), icon: TrendingUp,grad: 'linear-gradient(135deg,#0891b2,#0e7490)', border: 'border-cyan-500/30'   },
-    { label: 'Completed This Week', value: weekly.reduce((s, d) => s + d.completed, 0),icon: Award,    grad: 'linear-gradient(135deg,#059669,#0d9488)', border: 'border-emerald-500/30'},
-    { label: 'Overdue Tasks',       value: stats.overdue || 0,                        icon: Zap,       grad: 'linear-gradient(135deg,#e11d48,#be123c)', border: 'border-rose-500/30'   },
-  ];
+  const summaryCardData = useMemo(() => [
+    { label: 'Completion Rate',     value: `${stats.completionRate || 0}%`,           icon: Target,    grad: 'linear-gradient(135deg,#7c3aed,#6d28d9)', border: 'border-violet-500/30'  },
+    { label: 'Created This Week',   value: weekly.reduce((s, d) => s + d.created, 0), icon: TrendingUp,grad: 'linear-gradient(135deg,#0891b2,#0e7490)', border: 'border-cyan-500/30'    },
+    { label: 'Completed This Week', value: weekly.reduce((s, d) => s + d.completed, 0),icon: Award,    grad: 'linear-gradient(135deg,#059669,#0d9488)', border: 'border-emerald-500/30' },
+    { label: 'Overdue Tasks',       value: stats.overdue || 0,                         icon: Zap,       grad: 'linear-gradient(135deg,#e11d48,#be123c)', border: 'border-rose-500/30'   },
+  ], [stats.completionRate, stats.overdue, weekly]);
 
+  if (loading) return <LoadingSpinner size="lg" className="h-64" />;
+
+  const tickColor = isDark ? '#4a5a7a' : '#8b91b8';
+  const gridColor = isDark ? 'rgba(139,92,246,0.08)' : 'rgba(124,58,237,0.1)';
   const axisProps = { tick: { fill: tickColor, fontSize: 11 }, axisLine: false, tickLine: false };
 
   return (

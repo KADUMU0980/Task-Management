@@ -54,6 +54,7 @@ export default function TasksPage() {
     finally { setLoading(false); }
   }, [search, filters]);
 
+  // Debounce API calls by 300ms — UI updates are instant
   useEffect(() => {
     const t = setTimeout(fetchTasks, 300);
     return () => clearTimeout(t);
@@ -128,31 +129,35 @@ export default function TasksPage() {
   return (
     <div className="space-y-3 sm:space-y-4">
 
-      {/* ── Quick Add Bar ── */}
-      <div className="flex gap-2">
-        <div className="flex-1 relative">
-          <Zap className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-400 pointer-events-none" />
-          <input
-            ref={quickRef}
-            type="text"
-            placeholder="Quick add — type & press Enter"
-            value={quickTitle}
-            onChange={e => setQuickTitle(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
-            disabled={quickAdding}
-            className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 rounded-xl text-sm outline-none transition-all border tf-input-field font-medium"
-          />
+      {/* ── Quick Add Bar — sticky so it's always reachable while scrolling ── */}
+      <div className="sticky-quick-add">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Zap className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-400 pointer-events-none" />
+            <input
+              ref={quickRef}
+              type="text"
+              placeholder="Quick add — type & press Enter"
+              value={quickTitle}
+              onChange={e => setQuickTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
+              disabled={quickAdding}
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 rounded-xl text-sm outline-none transition-all border tf-input-field font-medium"
+              aria-label="Quick add a task"
+            />
+          </div>
+          <button
+            onClick={handleQuickAdd}
+            disabled={quickAdding || !quickTitle.trim()}
+            className="px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-white text-sm font-semibold transition-all hover:-translate-y-0.5 disabled:opacity-50 shadow-violet-sm flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg,#7c3aed,#06b6d4)' }}
+            aria-label="Add task"
+          >
+            {quickAdding
+              ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : <Plus className="w-4 h-4" />}
+          </button>
         </div>
-        <button
-          onClick={handleQuickAdd}
-          disabled={quickAdding || !quickTitle.trim()}
-          className="px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-white text-sm font-semibold transition-all hover:-translate-y-0.5 disabled:opacity-50 shadow-violet-sm flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#06b6d4)' }}
-        >
-          {quickAdding
-            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : <Plus className="w-4 h-4" />}
-        </button>
       </div>
 
       {/* ── Search + Actions bar ── */}
@@ -166,6 +171,7 @@ export default function TasksPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-xl text-sm outline-none transition-all border tf-input-field"
+            aria-label="Search tasks"
           />
         </div>
 
@@ -175,6 +181,7 @@ export default function TasksPage() {
           <button
             onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); setBulkMenuOpen(false); }}
             title="Bulk select"
+            aria-pressed={bulkMode}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border text-sm font-medium transition-all
               ${bulkMode ? 'text-violet-300 border-violet-500/40 bg-violet-500/15' : 'tf-text-2 tf-border hover:tf-border-hover tf-surface'}`}
           >
@@ -186,6 +193,7 @@ export default function TasksPage() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             title="Filters"
+            aria-pressed={showFilters}
             className={`relative flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border text-sm font-medium transition-all
               ${showFilters ? 'text-violet-300 border-violet-500/40 bg-violet-500/15' : 'tf-text-2 tf-border hover:tf-border-hover tf-surface'}`}
           >
@@ -215,7 +223,7 @@ export default function TasksPage() {
       {/* ── Filter Panel ── */}
       {showFilters && (
         <div className="rounded-2xl border tf-border p-3.5 sm:p-4 animate-fade-up tf-surface">
-          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
             {[
               { label: 'Status',   key: 'status',   opts: STATUSES   },
               { label: 'Priority', key: 'priority', opts: PRIORITIES  },
@@ -290,8 +298,10 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* ── Count ── */}
-      <p className="tf-text-3 text-xs">{tasks.length} task{tasks.length !== 1 ? 's' : ''} found</p>
+      {/* ── Count — live region so screen readers announce changes ── */}
+      <p className="tf-text-3 text-xs" aria-live="polite" aria-atomic="true">
+        {tasks.length} task{tasks.length !== 1 ? 's' : ''} found
+      </p>
 
       {/* ── Task List ── */}
       {loading ? (
@@ -328,7 +338,7 @@ export default function TasksPage() {
                       className="subtask-check mt-0.5 flex-shrink-0"
                     />
                   ) : (
-                    <button onClick={() => cycleStatus(task)} className="mt-0.5 flex-shrink-0 hover:scale-110 transition-transform">
+                    <button onClick={() => cycleStatus(task)} className="mt-0.5 flex-shrink-0 hover:scale-110 transition-transform" aria-label={`Cycle status for ${task.title}`}>
                       <StatusIcon status={task.status} />
                     </button>
                   )}
@@ -361,18 +371,20 @@ export default function TasksPage() {
                     </div>
                   </div>
 
-                  {/* Hover Actions */}
+                  {/* Action buttons — task-actions class makes them always visible on touch */}
                   {!bulkMode && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
+                    <div className="task-actions flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
                       <button
                         onClick={() => openEdit(task)}
-                        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg tf-text-3 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg tf-text-3 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                        aria-label={`Edit "${task.title}"`}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(task._id)}
-                        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg tf-text-3 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg tf-text-3 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                        aria-label={`Delete "${task.title}"`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

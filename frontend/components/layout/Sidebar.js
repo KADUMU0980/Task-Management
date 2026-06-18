@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +11,7 @@ import {
   ChevronLeft, ChevronRight, X, AlertTriangle
 } from 'lucide-react';
 
-const navItems = [
+export const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/tasks',     icon: CheckSquare,    label: 'My Tasks'  },
   { href: '/kanban',    icon: Kanban,         label: 'Kanban'    },
@@ -19,7 +19,7 @@ const navItems = [
   { href: '/profile',   icon: User,           label: 'Profile'   },
 ];
 
-function NavLink({ item, collapsed, onClose, badge }) {
+const NavLink = memo(function NavLink({ item, collapsed, onClose, badge }) {
   const pathname = usePathname();
   const active = pathname === item.href;
   return (
@@ -39,42 +39,18 @@ function NavLink({ item, collapsed, onClose, badge }) {
       {/* Tooltip when collapsed */}
       {collapsed && (
         <div className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity tf-card"
-          style={{ border: '1px solid var(--border-hover)', boxShadow: '0 8px 24px var(--shadow-color)' }}>
+          style={{ border: '1px solid var(--border-hover)', boxShadow: '0 8px 24px var(--shadow-color)' }}
+          role="tooltip">
           {item.label}
           {badge > 0 && <span className="ml-2 text-rose-400">({badge})</span>}
         </div>
       )}
     </Link>
   );
-}
+});
 
-export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
-  const { user, logout } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
-  const [urgentCount, setUrgentCount] = useState(0);
-
-  // Fetch overdue + due-today count for badge
-  useEffect(() => {
-    const fetchUrgent = async () => {
-      try {
-        const res = await taskApi.getAll({ limit: 200 });
-        const tasks = res.data.data || [];
-        const now = new Date();
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        const count = tasks.filter(t => {
-          if (t.status === 'completed' || !t.dueDate) return false;
-          const due = new Date(t.dueDate);
-          return due <= todayEnd;
-        }).length;
-        setUrgentCount(count);
-      } catch { /* ignore */ }
-    };
-    fetchUrgent();
-    const interval = setInterval(fetchUrgent, 60000); // refresh every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  const SidebarContent = ({ onClose }) => (
+const SidebarContent = memo(function SidebarContent({ collapsed, onClose, urgentCount, user, logout, isDark, toggleTheme }) {
+  return (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b tf-border ${collapsed ? 'justify-center' : ''}`}>
@@ -122,37 +98,71 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               <p className="tf-text-3 text-xs truncate mt-0.5">{user?.email}</p>
             </div>
             <button onClick={logout} title="Logout"
-              className="tf-text-3 hover:text-rose-400 transition-colors flex-shrink-0 p-1">
+              className="tf-text-3 hover:text-rose-400 transition-colors flex-shrink-0 p-1"
+              aria-label="Logout">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <button onClick={logout}
-            className="flex items-center justify-center w-full px-3 py-2.5 rounded-xl tf-text-3 hover:text-rose-400 hover:bg-rose-500/10 transition-all">
+            className="flex items-center justify-center w-full px-3 py-2.5 rounded-xl tf-text-3 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+            aria-label="Logout">
             <LogOut className="w-[18px] h-[18px]" />
           </button>
         )}
       </div>
     </div>
   );
+});
+
+export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
+  const { user, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const [urgentCount, setUrgentCount] = useState(0);
+
+  const fetchUrgent = useCallback(async () => {
+    try {
+      const res = await taskApi.getAll({ limit: 200 });
+      const tasks = res.data.data || [];
+      const now = new Date();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      const count = tasks.filter(t => {
+        if (t.status === 'completed' || !t.dueDate) return false;
+        return new Date(t.dueDate) <= todayEnd;
+      }).length;
+      setUrgentCount(count);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    fetchUrgent();
+    const interval = setInterval(fetchUrgent, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchUrgent]);
+
+  const sharedProps = { collapsed, urgentCount, user, logout, isDark, toggleTheme };
 
   return (
     <>
       {/* ── Desktop Sidebar ── */}
-      <aside className={`hidden lg:flex flex-col relative transition-all duration-300 ease-in-out flex-shrink-0 tf-surface border-r tf-border
-        ${collapsed ? 'w-[68px]' : 'w-64'}`}>
-        <SidebarContent onClose={() => {}} />
+      <aside
+        className={`hidden lg:flex flex-col relative flex-shrink-0 tf-surface border-r tf-border
+          transition-[width] duration-300 ease-in-out
+          ${collapsed ? 'w-[68px]' : 'w-64'}`}
+      >
+        <SidebarContent {...sharedProps} onClose={() => {}} />
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-7 w-6 h-6 rounded-full flex items-center justify-center
             tf-card border tf-border-hover tf-text-2 hover:text-violet-300
             hover:border-violet-500/60 transition-all z-10"
-          style={{ boxShadow: '0 2px 8px var(--shadow-color)' }}>
+          style={{ boxShadow: '0 2px 8px var(--shadow-color)' }}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
 
-      {/* ── Mobile Sidebar ── */}
+      {/* ── Mobile Drawer ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop */}
@@ -161,10 +171,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           <aside className="absolute left-0 top-0 bottom-0 w-72 flex flex-col animate-slide-in shadow-2xl tf-surface border-r tf-border">
             {/* Close btn */}
             <button onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg tf-text-2 hover:text-white hover:bg-[var(--bg-hover)] transition-all z-10">
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg tf-text-2 hover:text-white hover:bg-[var(--bg-hover)] transition-all z-10"
+              aria-label="Close navigation">
               <X className="w-4 h-4" />
             </button>
-            <SidebarContent onClose={() => setMobileOpen(false)} />
+            <SidebarContent {...sharedProps} collapsed={false} onClose={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

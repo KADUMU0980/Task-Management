@@ -108,9 +108,11 @@ export default function TaskModal({ task, defaultStatus='todo', onClose, onSaved
   const completedSubtasks = subtasks.filter(s => s.completed).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 tf-overlay"
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="w-full max-w-lg max-h-[92vh] flex flex-col rounded-3xl border tf-border shadow-[0_32px_80px_var(--shadow-strong)] animate-scale-in overflow-hidden tf-modal">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center sm:p-5 tf-overlay modal-container"
+      onClick={e => e.target===e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-lg sm:max-w-lg max-h-[96dvh] sm:max-h-[92vh] flex flex-col rounded-3xl border tf-border shadow-[0_32px_80px_var(--shadow-strong)] animate-scale-in overflow-hidden tf-modal modal-inner">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b tf-border flex-shrink-0">

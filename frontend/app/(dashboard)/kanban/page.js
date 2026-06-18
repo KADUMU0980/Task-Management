@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { taskApi } from '@/lib/api';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Plus, GripVertical, Zap, ListChecks, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, GripVertical, Zap, ListChecks } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TaskModal from '@/components/tasks/TaskModal';
 import { format } from 'date-fns';
@@ -21,14 +21,14 @@ export default function KanbanPage() {
   const [showModal, setShowModal] = useState(false);
   const [defStatus, setDefStatus] = useState('todo');
   const [editTask,  setEditTask]  = useState(null);
-  const [activeCol, setActiveCol] = useState(0); // for mobile column indicator
+  const [activeCol, setActiveCol] = useState(0);
 
-  const fetch = async () => {
+  const fetchTasks = async () => {
     try { const r = await taskApi.getAll({ limit: 200 }); setTasks(r.data.data); }
     catch { toast.error('Failed to load tasks'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchTasks(); }, []);
 
   const colTasks = (id) => tasks.filter(t => t.status === id).sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -40,28 +40,21 @@ export default function KanbanPage() {
     try {
       await taskApi.updateStatus(draggableId, newStatus);
       if (newStatus === 'completed') toast.success('Task completed! 🎉');
-    } catch { toast.error('Failed to move'); fetch(); }
+    } catch { toast.error('Failed to move'); fetchTasks(); }
   };
 
   if (loading) return <LoadingSpinner size="lg" className="h-64" />;
+
+  const boardRef = (el) => { /* store ref for scroll calculations */ };
 
   return (
     <div className="flex flex-col h-full space-y-3 sm:space-y-4">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="tf-text-3 text-xs sm:text-sm truncate">{tasks.length} tasks · drag to change status</p>
-          {/* Mobile column indicator */}
-          <div className="flex gap-1 lg:hidden">
-            {COLS.map((col, i) => (
-              <span
-                key={col.id}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeCol ? 'bg-violet-400 w-4' : 'bg-violet-400/30'}`}
-              />
-            ))}
-          </div>
-        </div>
+        <p className="tf-text-3 text-xs sm:text-sm truncate">
+          {tasks.length} tasks · drag to change status
+        </p>
         <button
           onClick={() => { setDefStatus('todo'); setEditTask(null); setShowModal(true); }}
           className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-white text-sm font-semibold shadow-violet-sm hover:-translate-y-0.5 transition-all flex-shrink-0"
@@ -72,15 +65,40 @@ export default function KanbanPage() {
         </button>
       </div>
 
-      {/* ── Mobile swipe hint ── */}
-      <p className="lg:hidden text-[11px] tf-text-3 flex items-center gap-1">
-        <ChevronLeft className="w-3 h-3" /> Swipe to see all columns <ChevronRight className="w-3 h-3" />
-      </p>
+      {/* ── Mobile Column Tabs (visible on < lg) ── */}
+      <div className="flex lg:hidden gap-1 p-1 rounded-xl tf-surface border tf-border">
+        {COLS.map((col, i) => (
+          <button
+            key={col.id}
+            onClick={() => {
+              setActiveCol(i);
+              // Scroll the kanban board to the correct column
+              const board = document.getElementById('kanban-board');
+              if (board) {
+                const colWidth = board.scrollWidth / COLS.length;
+                board.scrollTo({ left: i * colWidth, behavior: 'smooth' });
+              }
+            }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-lg text-xs font-semibold transition-all
+              ${activeCol === i
+                ? 'text-white border border-violet-500/30 shadow-[0_0_12px_rgba(124,58,237,0.2)]'
+                : 'tf-text-3 hover:tf-text-2'}`}
+            style={activeCol === i ? { background: 'linear-gradient(135deg,rgba(124,58,237,0.3),rgba(6,182,212,0.15))' } : {}}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${col.dot}`} />
+            <span className="truncate">{col.label}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${col.cnt}`}>
+              {colTasks(col.id).length}
+            </span>
+          </button>
+        ))}
+      </div>
 
       {/* ── Board ── */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div
-          className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth"
+          id="kanban-board"
+          className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth kanban-board"
           style={{ minHeight: '60vh' }}
           onScroll={e => {
             const el = e.currentTarget;
@@ -94,7 +112,7 @@ export default function KanbanPage() {
               <div
                 key={col.id}
                 className="flex flex-col rounded-2xl border flex-shrink-0 tf-surface snap-center
-                  w-[82vw] xs:w-[78vw] sm:w-80 lg:flex-1 lg:w-auto"
+                  w-[85vw] xs:w-[78vw] sm:w-80 lg:flex-1 lg:w-auto"
                 style={{ borderColor: col.border, minWidth: 0 }}
               >
                 {/* Column Header */}
@@ -108,6 +126,7 @@ export default function KanbanPage() {
                     <button
                       onClick={() => { setDefStatus(col.id); setEditTask(null); setShowModal(true); }}
                       className="w-6 h-6 flex items-center justify-center rounded-lg tf-text-3 hover:tf-text-1 hover:bg-[var(--bg-hover)] transition-all"
+                      aria-label={`Add task to ${col.label}`}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -150,7 +169,7 @@ export default function KanbanPage() {
                                 onClick={() => { setEditTask(task); setShowModal(true); }}
                               >
                                 <div className="flex items-start gap-2">
-                                  <div {...p.dragHandleProps} className="tf-text-3 hover:tf-text-2 transition-colors mt-0.5 flex-shrink-0">
+                                  <div {...p.dragHandleProps} className="tf-text-3 hover:tf-text-2 transition-colors mt-0.5 flex-shrink-0" aria-label="Drag handle">
                                     <GripVertical className="w-4 h-4" />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -202,7 +221,7 @@ export default function KanbanPage() {
           task={editTask}
           defaultStatus={defStatus}
           onClose={() => { setShowModal(false); setEditTask(null); }}
-          onSaved={() => { setShowModal(false); setEditTask(null); fetch(); }}
+          onSaved={() => { setShowModal(false); setEditTask(null); fetchTasks(); }}
         />
       )}
     </div>
